@@ -4,7 +4,8 @@ Run duo.py on its own for the option to export the totp (let it handle configura
 
 if you improve please for all our sakes make a pr! Also please pr in links to other similar projects (websites / browser extensions ect)
 
-If you plan on using firefox you will probably need the gekodriver
+if you plan on using firefox you will probably need the gekodriver
+
 -----------------
 
 ## rejectdopamine
