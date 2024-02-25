@@ -52,7 +52,7 @@ codes.sort(key=lambda x: x["count"])
 print("Found codes, Loading webbrowser")
 
 options = Options()
-# options.add_argument("-headless")
+options.add_argument("-headless")
 driver = webdriver.Firefox(options=options)
 
 
