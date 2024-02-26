@@ -6,6 +6,8 @@ if you improve please for all our sakes make a pr! Also please pr in links to ot
 
 if you plan on using firefox you will probably need the gekodriver
 
+if running on remote server a desktop will need to be installed or selelnium wont work
+
 -----------------
 
 ## rejectdopamine

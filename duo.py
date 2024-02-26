@@ -106,7 +106,7 @@ def manual_setup():
 
 
 def automated_setup():
-    with open("settings.json") as file:
+    with open("offsets.json") as file:
         settings = json.load(file)
 
     if os.path.exists(KEYSFILE):
@@ -243,24 +243,29 @@ def automated_setup():
     os.remove(".duoqr.tmp.png")
 
 
-if not os.path.exists(SETTINGSFILE):
-    print("[DUO] Cannot find configuration, initialising setup")
+def check_setup():
+    if not os.path.exists(SETTINGSFILE):
+        print("[DUO] Cannot find configuration, initialising setup")
 
-    option = input("[0] Automated setup\r\n"
-                   "[1] Manual setup\r\n"
-                   "?> ")
+        option = input("[0] Automated setup\r\n"
+                       "[1] Manual setup\r\n"
+                       "?> ")
 
-    if option == "0":
-        automated_setup()
+        if option == "0":
+            automated_setup()
+            print("[DUO] Setup complete, Duo authentication can now be skipped")
 
-    elif option == "1":
-        manual_setup()
+        elif option == "1":
+            manual_setup()
+            print("[DUO] Setup complete, Duo authentication can now be skipped")
 
-    else:
-        print("Invalid option")
-        sys.exit(1)
+        else:
+            print("Invalid option")
+            sys.exit(1)
 
 if __name__ == '__main__':
+    check_setup()
+
     option = input("[0] generate hotp code\r\n"
                    "[1] export secret (might want to run in console output is quite large)\r\n"
                    "?> ")

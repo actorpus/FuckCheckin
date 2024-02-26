@@ -11,7 +11,7 @@ import duo
 
 KEYSFILE = "settings_DONOTSHARE.json"
 
-with open("settings.json") as file:
+with open("offsets.json") as file:
     settings = json.load(file)
 
 if os.path.exists(KEYSFILE):
@@ -31,6 +31,29 @@ else:
             "username": USERNAME,
             "password": PASSWORD
         }, file)
+
+
+if not os.path.exists("usersettings.json"):
+    print("This application can either be run in manual authorisation mode or automatic authorisation mode\r\n"
+          "Automatic authorisation mode will locally store a generator that can bypass the duo authentication\r\n"
+          "This is optional, manual authorisation will send duo push notifications every time the application\r\n"
+          "\tis run\r\n")
+
+    option = input("[0] Manual authorisation\r\n[1] Automatic authorisation\r\n\t?> ")
+
+    if option == "1":
+        duo.check_setup()
+
+    with open("usersettings.json", "w") as file:
+        json.dump({
+            "authentication": option
+        }, file)
+
+    AUTHMODE = bool(int(option))
+
+else:
+    with open("usersettings.json") as file:
+        AUTHMODE = bool(int(json.load(file)["authentication"]))
 
 
 INST_CODE = settings['reject']['inst']
@@ -81,27 +104,48 @@ if driver.current_url.startswith("https://shib.york.ac.uk"):
     while not driver.execute_script("return document.readyState") == "complete": time.sleep(0.2)
     time.sleep(1)
 
-    for _ in range(50):
-        try:
-            push_button = driver.find_element("xpath", settings['navigation']['duo_passcode'])
-            time.sleep(0.2)
-            push_button.click()
-            break
-        except NoSuchElementException:
-            time.sleep(0.2)
-        except ElementNotInteractableException:
-            time.sleep(0.2)
-        except StaleElementReferenceException:
-            time.sleep(0.2)
+
+    if AUTHMODE:
+        for _ in range(50):
+            try:
+                push_button = driver.find_element("xpath", settings['navigation']['duo_passcode'])
+                time.sleep(0.2)
+                push_button.click()
+                break
+            except NoSuchElementException:
+                time.sleep(0.2)
+            except ElementNotInteractableException:
+                time.sleep(0.2)
+            except StaleElementReferenceException:
+                time.sleep(0.2)
+        else:
+            print("Duo did not load / took to long to load")
+            exit()
+
+        passcode = driver.find_element("xpath", settings['navigation']['duo_passcode_entry'])
+        passcode.send_keys(duo.generate_code())
+
+        push_button = driver.find_element("xpath", settings['navigation']['duo_passcode'])
+        push_button.click()
+
     else:
-        print("Duo did not load / took to long to load")
-        exit()
+        for _ in range(50):
+            try:
+                push_button = driver.find_element("xpath", settings['navigation']['duo_request'])
+                time.sleep(0.2)
+                push_button.click()
+                break
+            except NoSuchElementException:
+                time.sleep(0.2)
+            except ElementNotInteractableException:
+                time.sleep(0.2)
+            except StaleElementReferenceException:
+                time.sleep(0.2)
+        else:
+            print("Duo did not load / took to long to load")
+            exit()
 
-    passcode = driver.find_element("xpath", settings['navigation']['duo_passcode_entry'])
-    passcode.send_keys(duo.generate_code())
-
-    push_button = driver.find_element("xpath", settings['navigation']['duo_passcode'])
-    push_button.click()
+        print("Please authorise the login on your phone")
 
     driver.switch_to.default_content()
 

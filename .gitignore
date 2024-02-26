@@ -1,0 +1,12 @@
+# probably important
+*DONOTSHARE*
+usersettings.json
+
+.env
+.venv
+.idea
+.vscode
+
+*.log
+*.tmp
+*.tmp.*
