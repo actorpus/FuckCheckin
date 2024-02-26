@@ -10,6 +10,7 @@ import duo
 
 
 KEYSFILE = "settings_DONOTSHARE.json"
+headers = {'User-Agent':'FuckCheckin/1.1'}
 
 with open("offsets.json") as file:
     settings = json.load(file)
@@ -61,18 +62,25 @@ COURSE_CODE = settings['reject']['course']
 YEAR = settings['reject']['year']
 
 print("Getting codes fron reject")
-modules = requests.get(f"https://rejectdopamine.com/api/app/find/{INST_CODE}/{YEAR}/{COURSE_CODE}/md").json()["modules"]
-modules = [module["module_code"] for module in modules]
-
 codes = []
+try:
+    modules = requests.get(f"https://rejectdopamine.com/api/app/find/{INST_CODE}/{YEAR}/{COURSE_CODE}/md", headers=headers).json()["modules"]
+    modules = [module["module_code"] for module in modules]
 
-for module in modules:
-    r = requests.get(f"https://rejectdopamine.com/api/app/codes/{INST_CODE}/{COURSE_CODE}/{YEAR}/{module}").json()
-    for _ in r: codes.append(_)
 
-codes.sort(key=lambda x: x["count"])
+    for module in modules:
+        r = requests.get(f"https://rejectdopamine.com/api/app/codes/{INST_CODE}/{COURSE_CODE}/{YEAR}/{module}", headers=headers).json()
+        for _ in r: codes.append(_)
 
-print("Found codes, Loading webbrowser")
+    codes.sort(key=lambda x: x["count"])
+
+    print("Found codes, Loading webbrowser")
+except:
+    """ 
+        This accounts for when reject's api does not return data in specified format
+    """
+    print("Error getting codes from reject")
+    exit()
 
 options = Options()
 options.add_argument("-headless")
