@@ -68,14 +68,14 @@ if not os.path.exists(USERSETTINGSFILE):
 
     AUTHMODE = bool(int(auth_option))
     HEADLESS = not bool(int(head_option))
-    INST_CODE, COURSE_CODE, YEAR = reject_setup
+    INST_CODE, YEAR, COURSE_CODE = reject_setup
 
 else:
     with open(USERSETTINGSFILE) as file:
         settings = json.load(file)
 
     AUTHMODE = bool(int(settings['authentication']))
-    INST_CODE, COURSE_CODE, YEAR = settings['reject']
+    INST_CODE, YEAR, COURSE_CODE = settings['reject']
     HEADLESS = not bool(int(settings['show_window']))
 
 
@@ -186,42 +186,49 @@ print("Log in successful, trying codes")
 
 while not driver.execute_script("return document.readyState") == "complete": time.sleep(0.2)
 
-try:
-    present_button = driver.find_element("xpath", OFFSETS['present_button'])
-    present_button.click()
-except ElementNotInteractableException:
-    print("you should never see this line of text")
+token = driver.execute_script("return $(\".dropdown-locale\").data(\"csrf\");")
+xsrf_token = driver.get_cookie("XSRF-TOKEN")["value"]
+prestostudent_session = driver.get_cookie("prestostudent_session")["value"]
 
-except NoSuchElementException:
-    print("No classes (not signed in already) could be found")
-    exit()
 
-for code in codes:
-    while not driver.execute_script("return document.readyState") == "complete": time.sleep(0.2)
-    time.sleep(2)
+nodes = driver.find_elements("css selector", "section[data-activities-id]")
+events = []
 
-    code_feild = driver.find_element("xpath", OFFSETS['code_feild'])
-    code_feild.send_keys(code["checkinCode"])
+for node in nodes:
+    events.append(node.get_attribute("data-activities-id"))
 
-    time.sleep(2)
+driver.quit()
+print("Trying codes: ", end="")
 
-    submit_button = driver.find_element("xpath", OFFSETS['submit_button'])
-    submit_button.click()
 
-    time.sleep(5)
+for event in events:
+    for code in codes:
+        req = requests.post(f"https://checkin.york.ac.uk/api/selfregistration/{event}/present", headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+            "Accept": "application/json",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "Referer": "https://checkin.york.ac.uk/selfregistration",
+            "Cookie": f"XSRF-TOKEN={xsrf_token}; prestostudent_session={prestostudent_session}",
+        }, data={
+            "code": code["checkinCode"],
+            "_token": token,
+        })
 
-    try:
-        present_button = driver.find_element("xpath", OFFSETS['present_button'])
-        present_button.click()
-    except ElementNotInteractableException:
+        if req.status_code == 422:
+            print("O", end="")
+            continue
+
+        print("#")
+
+        print(f"{code['checkinCode']} - {req.status_code}")
+
         break
 
-    except NoSuchElementException:
-        print("No classes (not signed in already) could be found")
-        exit()
+    else:
+        print("\nNo valid codes found (you might already be checked in)")
+        continue
 
-else:
-    print("Entering code failed")
-    exit()
+    break
 
-print("Successfully signed in", code)
+print("Done")
