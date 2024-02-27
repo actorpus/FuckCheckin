@@ -1,27 +1,20 @@
 {
-  "reject": {
-    "inst": "yrk",
-    "year": "1",
-    "course": "cs"
-  },
-  "navigation": {
-    "username": "//*[@id=\"username\"]",
-    "password": "//*[@id=\"password\"]",
-    "log_in": "/html/body/div[2]/div/div[1]/div/div/form/div[3]/button",
-    "duo_frame": "//*[@id=\"duo_iframe\"]",
-    "duo_passcode": "//*[@id=\"passcode\"]",
-    "duo_passcode_entry": "/html/body/div/div/div[1]/div/form/div[1]/fieldset[1]/div[2]/div/input",
-    "duo_push": "/html/body/div/div/div[1]/div/form/div[1]/fieldset[1]/div[2]/button",
-    "duo_passcode_submit": "//*[@id=\"passcode\"]",
-    "duo_add_device": "//*[@id=\"another-device\"]",
-    "duo_add_tablet": "/html/body/div/div/div[1]/div/form/div/fieldset/label[2]/input",
-    "duo_add_continue": "//*[@id=\"continue\"]",
-    "duo_add_android": "/html/body/div/div/div[1]/div/div/form/fieldset/label[2]/input",
-    "duo_installed": "//*[@id=\"duo-installed\"]",
-    "duo_request": "/html/body/div/div/div[1]/div/form/div[1]/fieldset/div[1]/button",
-    "duo_qr": "/html/body/div/div/div[1]/div/div/div/div[1]/div[1]/div/img",
-    "present_button": "/html/body/div[2]/div/div/section/div/div[5]/button",
-    "code_feild": "//*[@id=\"notie-input-field\"]",
-    "submit_button": "//*[@id=\"notie-input-yes\"]"
-  }
+  "username": "//*[@id=\"username\"]",
+  "password": "//*[@id=\"password\"]",
+  "log_in": "/html/body/div[2]/div/div[1]/div/div/form/div[3]/button",
+  "duo_frame": "//*[@id=\"duo_iframe\"]",
+  "duo_passcode": "//*[@id=\"passcode\"]",
+  "duo_passcode_entry": "/html/body/div/div/div[1]/div/form/div[1]/fieldset[1]/div[2]/div/input",
+  "duo_push": "/html/body/div/div/div[1]/div/form/div[1]/fieldset[1]/div[2]/button",
+  "duo_passcode_submit": "//*[@id=\"passcode\"]",
+  "duo_add_device": "//*[@id=\"another-device\"]",
+  "duo_add_tablet": "/html/body/div/div/div[1]/div/form/div/fieldset/label[2]/input",
+  "duo_add_continue": "//*[@id=\"continue\"]",
+  "duo_add_android": "/html/body/div/div/div[1]/div/div/form/fieldset/label[2]/input",
+  "duo_installed": "//*[@id=\"duo-installed\"]",
+  "duo_request": "/html/body/div/div/div[1]/div/form/div[1]/fieldset/div[1]/button",
+  "duo_qr": "/html/body/div/div/div[1]/div/div/div/div[1]/div[1]/div/img",
+  "present_button": "/html/body/div[2]/div/div/section/div/div[5]/button",
+  "code_feild": "//*[@id=\"notie-input-field\"]",
+  "submit_button": "//*[@id=\"notie-input-yes\"]"
 }

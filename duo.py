@@ -106,8 +106,12 @@ def manual_setup():
 
 
 def automated_setup():
-    with open("offsets.json") as file:
+    with open("usersettings.json") as file:
         settings = json.load(file)
+        HEADLESS = not bool(int(settings['show_window']))
+
+    with open("offsets.json") as file:
+        OFFSETS = json.load(file)
 
     if os.path.exists(KEYSFILE):
         with open(KEYSFILE, "r") as file:
@@ -128,7 +132,8 @@ def automated_setup():
             }, file)
 
     options = Options()
-    options.add_argument("-headless")
+    if HEADLESS:
+        options.add_argument("-headless")
     driver = webdriver.Firefox(options=options)
 
     driver.get("https://duo.york.ac.uk/manage")
@@ -136,26 +141,26 @@ def automated_setup():
     while not driver.execute_script("return document.readyState") == "complete": time.sleep(0.2)
 
     print("[DUO] Attempting to add duo device...")
-    username = driver.find_element("xpath", settings['navigation']['username'])
+    username = driver.find_element("xpath", OFFSETS['username'])
     username.send_keys(USERNAME)
 
-    password = driver.find_element("xpath", settings['navigation']['password'])
+    password = driver.find_element("xpath", OFFSETS['password'])
     password.send_keys(PASSWORD)
 
-    log_in = driver.find_element("xpath", settings['navigation']['log_in'])
+    log_in = driver.find_element("xpath", OFFSETS['log_in'])
     log_in.click()
 
     while not driver.current_url == "https://duo.york.ac.uk/manage": time.sleep(0.2)
     while not driver.execute_script("return document.readyState") == "complete": time.sleep(0.2)
     time.sleep(1)
 
-    duo_frame = driver.find_element("xpath", settings['navigation']['duo_frame'])
+    duo_frame = driver.find_element("xpath", OFFSETS['duo_frame'])
 
     driver.switch_to.frame(duo_frame)
 
     for _ in range(50):
         try:
-            push_button = driver.find_element("xpath", settings['navigation']['duo_push'])
+            push_button = driver.find_element("xpath", OFFSETS['duo_push'])
             time.sleep(0.2)
             push_button.click()
             break
@@ -184,33 +189,33 @@ def automated_setup():
         print("Duo did not load / took to long to load")
         exit()
 
-    add_device = driver.find_element("xpath", settings['navigation']['duo_add_device'])
+    add_device = driver.find_element("xpath", OFFSETS['duo_add_device'])
     add_device.click()
 
     while not driver.execute_script("return document.readyState") == "complete": time.sleep(0.2)
 
-    add_tablet = driver.find_element("xpath", settings['navigation']['duo_add_tablet'])
+    add_tablet = driver.find_element("xpath", OFFSETS['duo_add_tablet'])
     add_tablet.click()
 
-    add_continue = driver.find_element("xpath", settings['navigation']['duo_add_continue'])
+    add_continue = driver.find_element("xpath", OFFSETS['duo_add_continue'])
     add_continue.click()
 
     while not driver.execute_script("return document.readyState") == "complete": time.sleep(0.2)
 
-    add_android = driver.find_element("xpath", settings['navigation']['duo_add_android'])
+    add_android = driver.find_element("xpath", OFFSETS['duo_add_android'])
     add_android.click()
 
-    add_continue = driver.find_element("xpath", settings['navigation']['duo_add_continue'])
+    add_continue = driver.find_element("xpath", OFFSETS['duo_add_continue'])
     add_continue.click()
 
     while not driver.execute_script("return document.readyState") == "complete": time.sleep(0.2)
 
-    installed = driver.find_element("xpath", settings['navigation']['duo_installed'])
+    installed = driver.find_element("xpath", OFFSETS['duo_installed'])
     installed.click()
 
     while not driver.execute_script("return document.readyState") == "complete": time.sleep(0.2)
 
-    qr = driver.find_element("xpath", settings['navigation']['duo_qr'])
+    qr = driver.find_element("xpath", OFFSETS['duo_qr'])
     qr_url = qr.get_attribute("src")
 
     req = requests.get(qr_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0"}, stream=True)
@@ -233,7 +238,7 @@ def automated_setup():
 
     _duo_auth(host, code)
 
-    add_continue = driver.find_element("xpath", settings['navigation']['duo_add_continue'])
+    add_continue = driver.find_element("xpath", OFFSETS['duo_add_continue'])
     add_continue.click()
 
     while not driver.execute_script("return document.readyState") == "complete": time.sleep(0.2)
@@ -247,7 +252,7 @@ def check_setup():
     if not os.path.exists(SETTINGSFILE):
         print("[DUO] Cannot find configuration, initialising setup")
 
-        option = input("[0] Automated setup\r\n"
+        option = input("[0] Automated setup (recommended)\r\n"
                        "[1] Manual setup\r\n"
                        "?> ")
 
