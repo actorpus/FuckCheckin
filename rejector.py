@@ -3,6 +3,60 @@ import requests
 
 HEADERS = {"User-Agent": "FuckCheckin/1.1"}
 
+def getCodes(INST_CODE, COURSE_CODE, YEAR):
+    """
+    Fetches and sorts checkin codes from the Reject Dopamine API.
+
+    Returns:
+        list: A list of checkin codes sorted by count in descending order.
+              If an error occurs during the process, an empty list is returned.
+    """
+    print("Getting codes from reject")
+    codes = []
+    try:
+        active_codes_response = requests.get(
+            f"https://rejectdopamine.com/api/app/active/{INST_CODE}/{COURSE_CODE}/{YEAR}",
+            headers=HEADERS,
+        )
+        active_codes_data = active_codes_response.json()
+        print(active_codes_data)
+        print(INST_CODE, COURSE_CODE, YEAR)
+        if active_codes_response.status_code == 403:  # Course does not support timetabled codes
+            modules_response = requests.get(
+                f"https://rejectdopamine.com/api/app/find/{INST_CODE}/{YEAR}/{COURSE_CODE}/md",
+                headers=HEADERS,
+            ).json()
+            modules = [module["module_code"] for module in modules_response["modules"]]
+
+            for module in modules:
+                codes_response = requests.get(
+                    f"https://rejectdopamine.com/api/app/codes/{INST_CODE}/{COURSE_CODE}/{YEAR}/{module}",
+                    headers=HEADERS,
+                ).json()
+                codes.extend(codes_response)
+
+            codes.sort(key=lambda x: x["count"])
+        else:  # Course uses timetabled codes
+            print(active_codes_data['msg'])
+            if active_codes_data['sessionCount'] == 0:
+                return []
+            else:
+                for session in active_codes_data['sessions']:
+                    codes.extend(session['codes'])
+                codes.sort(key=lambda x: x['count'], reverse=True)
+
+        sorted_checkin_codes = [code['checkinCode'] for code in codes]
+        if sorted_checkin_codes != []:
+            print("Found codes, Loading driver")
+        return sorted_checkin_codes
+
+    except Exception as e:
+        """
+        This accounts for when reject's API does not return data in the specified format
+        """
+        print(f"Error getting codes from reject ({e})")
+        return []
+
 
 class Fuzzer:
     def __init__(self, wordlist):
@@ -245,10 +299,10 @@ def setup():
         if len(spells) == 1:
             if spells[0] in courses:
                 print(
-                    f"[REJ] Set your university to {courses[spells[0]]} ({spells[0]})"
+                    f"[REJ] Set your course to {courses[spells[0]]} ({spells[0]})"
                 )
             else:
-                print(f"[REJ] Set your university to {spells[0]}")
+                print(f"[REJ] Set your course to {spells[0]}")
 
             course = spells[0]
             break
@@ -262,7 +316,7 @@ def setup():
                 option = input(f"[REJ] Did you mean {spells[0]}? [Y/n] \r\n\t?> ")
 
             if option.lower() == "y" or option == "":
-                print(f"[REJ] Set your university to {spells[0]}")
+                print(f"[REJ] Set your course to {spells[0]}")
 
                 course = spells[0]
                 break

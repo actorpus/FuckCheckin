@@ -80,9 +80,6 @@ else:
     with open(USERSETTINGSFILE) as file:
         settings = json.load(file)
 
-    AUTHMODE = bool(int(settings["authentication"]))
-    INST_CODE, YEAR, COURSE_CODE = settings["reject"]
-    HEADLESS = not bool(int(settings["show_window"]))
     version = settings.get("version", "0.0")
 
     if version != FILESVERSION:
@@ -92,37 +89,19 @@ else:
         os.remove(USERSETTINGSFILE)
         exit()
 
+    AUTHMODE = bool(int(settings["authentication"]))
+    INST_CODE, YEAR, COURSE_CODE = settings["reject"]
+    HEADLESS = not bool(int(settings["show_window"]))
+
 
 if AUTHMODE:
     duo.check_setup()
 
 
-print("Getting codes from reject")
-codes = []
-try:
-    modules = requests.get(
-        f"https://rejectdopamine.com/api/app/find/{INST_CODE}/{YEAR}/{COURSE_CODE}/md",
-        headers=HEADERS,
-    ).json()["modules"]
-    modules = [module["module_code"] for module in modules]
-
-    for module in modules:
-        r = requests.get(
-            f"https://rejectdopamine.com/api/app/codes/{INST_CODE}/{COURSE_CODE}/{YEAR}/{module}",
-            headers=HEADERS,
-        ).json()
-        for _ in r:
-            codes.append(_)
-
-    codes.sort(key=lambda x: x["count"])
-
-    print("Found codes, Loading driver")
-except Exception as e:
-    """
-    This accounts for when reject's api does not return data in specified format
-    """
-    print(f"Error getting codes from reject ({e})")
-    exit()
+# Use reject's API to get codes
+codes = rejector.getCodes(INST_CODE, COURSE_CODE, YEAR)
+print(codes)
+if codes == []: exit()
 
 options = Options()
 if HEADLESS:
