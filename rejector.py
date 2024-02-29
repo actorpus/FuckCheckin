@@ -299,10 +299,10 @@ def setup():
         if len(spells) == 1:
             if spells[0] in courses:
                 print(
-                    f"[REJ] Set your university to {courses[spells[0]]} ({spells[0]})"
+                    f"[REJ] Set your course to {courses[spells[0]]} ({spells[0]})"
                 )
             else:
-                print(f"[REJ] Set your university to {spells[0]}")
+                print(f"[REJ] Set your course to {spells[0]}")
 
             course = spells[0]
             break
@@ -316,7 +316,7 @@ def setup():
                 option = input(f"[REJ] Did you mean {spells[0]}? [Y/n] \r\n\t?> ")
 
             if option.lower() == "y" or option == "":
-                print(f"[REJ] Set your university to {spells[0]}")
+                print(f"[REJ] Set your course to {spells[0]}")
 
                 course = spells[0]
                 break
