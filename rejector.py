@@ -3,7 +3,7 @@ import requests
 
 HEADERS = {"User-Agent": "FuckCheckin/1.1"}
 
-def getCodes(INST_CODE, COURSE_CODE, YEAR):
+def getCodes(INST_CODE, COURSE_CODE, YEAR, *, return_events: bool = False):
     """
     Fetches and sorts checkin codes from the Reject Dopamine API.
 
@@ -22,6 +22,10 @@ def getCodes(INST_CODE, COURSE_CODE, YEAR):
         print(active_codes_data)
         print(INST_CODE, COURSE_CODE, YEAR)
         if active_codes_response.status_code == 403:  # Course does not support timetabled codes
+
+            if return_events:
+                return []  # Non timetabled course cannot return events
+
             modules_response = requests.get(
                 f"https://rejectdopamine.com/api/app/find/{INST_CODE}/{YEAR}/{COURSE_CODE}/md",
                 headers=HEADERS,
@@ -38,16 +42,21 @@ def getCodes(INST_CODE, COURSE_CODE, YEAR):
             codes.sort(key=lambda x: x["count"])
         else:  # Course uses timetabled codes
             print(active_codes_data['msg'])
-            if active_codes_data['sessionCount'] == 0:
+            if not(active_codes_data['sessionCount']):
                 return []
-            else:
-                for session in active_codes_data['sessions']:
-                    codes.extend(session['codes'])
-                codes.sort(key=lambda x: x['count'], reverse=True)
+
+            if return_events:
+                return active_codes_data['sessions']
+
+            for session in active_codes_data['sessions']:
+                codes.extend(session['codes'])
+            codes.sort(key=lambda x: x['count'], reverse=True)
 
         sorted_checkin_codes = [code['checkinCode'] for code in codes]
+
         if sorted_checkin_codes != []:
             print("Found codes, Loading driver")
+
         return sorted_checkin_codes
 
     except Exception as e:
