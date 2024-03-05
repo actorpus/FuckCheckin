@@ -197,6 +197,12 @@ def main():
     prestostudent_session = driver.get_cookie("prestostudent_session")["value"]
 
 
+    print(f"""
+token = \"{token}\"
+xsrf_token = \"{xsrf_token}\"
+prestostudent_session = \"{prestostudent_session}\"
+""")
+
     nodes = driver.find_elements("css selector", "section[data-activities-id]")
     events = []
 
@@ -224,18 +230,21 @@ def main():
                     "Cookie": f"XSRF-TOKEN={xsrf_token}; prestostudent_session={prestostudent_session}",
                 },
                 data={
-                    "code": code["checkinCode"],
+                    "code": code,
                     "_token": token,
                 },
             )
 
+            print(f"{code} - {req.status_code}", end=" ")
+            print(req.text, end=" ")
+
             if req.status_code == 422:
-                print("O", end="")
+                print("O", end=", ")
                 continue
 
             print("#")
 
-            print(f"{code['checkinCode']} - {req.status_code}")
+            print(f"{code} - {req.status_code}")
             success = True
 
             break
