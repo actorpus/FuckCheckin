@@ -37,7 +37,11 @@ try:
 
         if not sessions:
             print("No sessions found")
-            exit()
+
+            print("Waiting 15 mins... ", end="")
+            time.sleep(60 * 15)
+            print("Waited")
+
 
         for session in sessions:
             startcode = datetime.strptime(f"{session['startDate']} {session['startTime']}", "%a %b %d %Y %H:%M").timestamp()

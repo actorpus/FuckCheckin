@@ -90,7 +90,7 @@ def main():
                 "Your settings file is out of date and has been removed, please re-run the application"
             )
             os.remove(USERSETTINGSFILE)
-            exit()
+            return False
 
         AUTHMODE = bool(int(settings["authentication"]))
         INST_CODE, YEAR, COURSE_CODE = settings["reject"]
@@ -104,7 +104,7 @@ def main():
     # Use reject's API to get codes
     codes = rejector.getCodes(INST_CODE, COURSE_CODE, YEAR)
     print(codes)
-    if codes == []: exit()
+    if codes == []: return False
 
     options = Options()
     if HEADLESS:
@@ -155,7 +155,7 @@ def main():
                     time.sleep(0.2)
             else:
                 print("Duo did not load / took to long to load")
-                exit()
+                return False
 
             passcode = driver.find_element("xpath", OFFSETS["duo_passcode_entry"])
             passcode.send_keys(duo.generate_code())
@@ -178,7 +178,7 @@ def main():
                     time.sleep(0.2)
             else:
                 print("Duo did not load / took to long to load")
-                exit()
+                return False
 
             print("Please authorise the login on your phone")
 
