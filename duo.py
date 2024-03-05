@@ -16,9 +16,12 @@ from selenium.webdriver.firefox.options import Options
 import time
 from pyzbar.pyzbar import decode
 from PIL import Image
+import logging
 
 SETTINGSFILE = "duosession_DONOTSHARE.json"
 KEYSFILE = "settings_DONOTSHARE.json"
+
+_logger = logging.getLogger("DUO")
 
 
 def generate_code():
@@ -31,7 +34,7 @@ def generate_code():
     hotp = pyotp.HOTP(secret)
     code = hotp.at(count)
 
-    print(f"[DUO] Code generation C{count}c{code}")
+    _logger.info(f"Code generation C{count}c{code}")
 
     settings["c"] += 1
 
@@ -85,18 +88,18 @@ def _duo_auth(host, code):
     with open(SETTINGSFILE, "w") as file:
         json.dump({"t": secret.decode(), "c": 0}, file)
 
-    print("[DUO] Authentication sucsessfull")
+    _logger.info("Authentication successful")
 
 
 def manual_setup():
+    _logger.info("Starting manual setup")
+
     print(
         "[DUO] Navigate to https://duo.york.ac.uk/manage \r\n\t+Add another divice\r\n\t"
         "Tablet\r\n\tAndroid\r\n\tI Have Duo Mobile Installed\r\n\tEmail me an..."
     )
 
     email = input("[DUO] Enter the link sent your email ?> ")
-
-    print("[DUO] This may take a seccond")
 
     host = email.split(".")[0].split("-")[1]
     host = f"api-{host}.duosecurity.com"
@@ -107,6 +110,8 @@ def manual_setup():
 
 
 def automated_setup():
+    _logger.info("Starting automated setup")
+
     with open("usersettings.json") as file:
         settings = json.load(file)
         HEADLESS = not bool(int(settings["show_window"]))
@@ -121,6 +126,8 @@ def automated_setup():
             PASSWORD = s["password"]
 
     else:
+        _logger.warning("No keys file found")
+
         print("Please enter username and password")
         USERNAME = input("username ?> ")
         PASSWORD = input("password ?> ")
@@ -133,12 +140,14 @@ def automated_setup():
         options.add_argument("-headless")
     driver = webdriver.Firefox(options=options)
 
+    _logger.info("Navigating to duo.york.ac.uk/manage")
+
     driver.get("https://duo.york.ac.uk/manage")
 
     while not driver.execute_script("return document.readyState") == "complete":
         time.sleep(0.2)
 
-    print("[DUO] Attempting to add duo device...")
+    _logger.info("Attempting to add duo device")
     username = driver.find_element("xpath", OFFSETS["username"])
     username.send_keys(USERNAME)
 
@@ -158,6 +167,8 @@ def automated_setup():
 
     driver.switch_to.frame(duo_frame)
 
+    _logger.info("Attempting to push duo button")
+
     for _ in range(50):
         try:
             push_button = driver.find_element("xpath", OFFSETS["duo_push"])
@@ -171,10 +182,12 @@ def automated_setup():
         except StaleElementReferenceException:
             time.sleep(0.2)
     else:
-        print("Duo did not load / took to long to load")
+        _logger.error("Duo did not load / took to long to load")
         exit()
 
     print("[DUO] Please accept the duo push")
+
+    _logger.info("Waiting for duo push to be accepted")
 
     for _ in range(50):
         try:
@@ -186,7 +199,7 @@ def automated_setup():
             time.sleep(0.2)
 
     else:
-        print("Duo did not load / took to long to load")
+        _logger.error("Duo did not load / took to long to load")
         exit()
 
     add_device = driver.find_element("xpath", OFFSETS["duo_add_device"])
@@ -221,6 +234,8 @@ def automated_setup():
 
     qr = driver.find_element("xpath", OFFSETS["duo_qr"])
     qr_url = qr.get_attribute("src")
+
+    _logger.info("Downloading QR code")
 
     req = requests.get(
         qr_url,
@@ -261,26 +276,28 @@ def automated_setup():
 
 def check_setup():
     if not os.path.exists(SETTINGSFILE):
-        print("[DUO] Cannot find configuration, initialising setup")
+        _logger.warning("Cannot find configuration, initialising setup")
 
         option = input(
-            "[0] Automated setup (recommended)\r\n" "[1] Manual setup\r\n" "?> "
+            "[0] Automated duo setup (recommended)\r\n" "[1] Manual duo setup\r\n" "?> "
         )
 
         if option == "0":
             automated_setup()
-            print("[DUO] Setup complete, Duo authentication can now be skipped")
+            _logger.info("Automated setup complete")
 
         elif option == "1":
             manual_setup()
-            print("[DUO] Setup complete, Duo authentication can now be skipped")
+            _logger.info("Manual setup complete")
 
         else:
-            print("Invalid option")
+            _logger.error("Invalid option")
             sys.exit(1)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+
     check_setup()
 
     option = input(
