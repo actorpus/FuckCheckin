@@ -1,7 +1,7 @@
 import logging
 import os
 import json
-import rejector
+import reject_api
 
 _logger = logging.getLogger("SETTINGS")
 SETTINGS_FILE = "settings.DONOTSHARE.json"
