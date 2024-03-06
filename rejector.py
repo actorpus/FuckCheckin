@@ -1,9 +1,12 @@
 import requests
+import logging
 
 
 HEADERS = {"User-Agent": "FuckCheckin/1.1"}
+_logger = logging.getLogger("REJECT")
 
-def getCodes(INST_CODE, COURSE_CODE, YEAR, *, return_events: bool = False):
+
+def getCodes(settings, *, return_events: bool = False):
     """
     Fetches and sorts checkin codes from the Reject Dopamine API.
 
@@ -11,51 +14,51 @@ def getCodes(INST_CODE, COURSE_CODE, YEAR, *, return_events: bool = False):
         list: A list of checkin codes sorted by count in descending order.
               If an error occurs during the process, an empty list is returned.
     """
-    print("Getting codes from reject")
+    _logger.info("Fetching codes from reject")
+
     codes = []
     try:
         active_codes_response = requests.get(
-            f"https://rejectdopamine.com/api/app/active/{INST_CODE}/{COURSE_CODE}/{YEAR}",
+            f"https://rejectdopamine.com/api/app/active/{settings.reject_institution}/{settings.reject_course}/{settings.reject_year}",
             headers=HEADERS,
         )
         active_codes_data = active_codes_response.json()
-        print(active_codes_data)
-        print(INST_CODE, COURSE_CODE, YEAR)
-        if active_codes_response.status_code == 403:  # Course does not support timetabled codes
+
+        if (
+            active_codes_response.status_code == 403
+        ):  # Course does not support timetabled codes
 
             if return_events:
                 return []  # Non timetabled course cannot return events
 
             modules_response = requests.get(
-                f"https://rejectdopamine.com/api/app/find/{INST_CODE}/{YEAR}/{COURSE_CODE}/md",
+                f"https://rejectdopamine.com/api/app/find/{settings.reject_institution}/{settings.reject_year}/{settings.reject_course}/md",
                 headers=HEADERS,
             ).json()
             modules = [module["module_code"] for module in modules_response["modules"]]
 
             for module in modules:
                 codes_response = requests.get(
-                    f"https://rejectdopamine.com/api/app/codes/{INST_CODE}/{COURSE_CODE}/{YEAR}/{module}",
+                    f"https://rejectdopamine.com/api/app/codes/{settings.reject_institution}/{settings.reject_course}/{settings.reject_year}/{module}",
                     headers=HEADERS,
                 ).json()
                 codes.extend(codes_response)
 
             codes.sort(key=lambda x: x["count"])
-        else:  # Course uses timetabled codes
-            print(active_codes_data['msg'])
-            if not(active_codes_data['sessionCount']):
+        else:
+            _logger.info("Timetable codes found, " + active_codes_data["msg"])
+
+            if not (active_codes_data["sessionCount"]):
                 return []
 
             if return_events:
-                return active_codes_data['sessions']
+                return active_codes_data["sessions"]
 
-            for session in active_codes_data['sessions']:
-                codes.extend(session['codes'])
-            codes.sort(key=lambda x: x['count'], reverse=True)
+            for session in active_codes_data["sessions"]:
+                codes.extend(session["codes"])
+            codes.sort(key=lambda x: x["count"], reverse=True)
 
-        sorted_checkin_codes = [code['checkinCode'] for code in codes]
-
-        if sorted_checkin_codes != []:
-            print("Found codes, Loading driver")
+        sorted_checkin_codes = [code["checkinCode"] for code in codes]
 
         return sorted_checkin_codes
 
@@ -63,7 +66,7 @@ def getCodes(INST_CODE, COURSE_CODE, YEAR, *, return_events: bool = False):
         """
         This accounts for when reject's API does not return data in the specified format
         """
-        print(f"Error getting codes from reject ({e})")
+        _logger.error(f"Error fetching codes from reject: {e}")
         return []
 
 
@@ -219,6 +222,8 @@ class Fuzzer:
 
 
 def _get_unis():
+    _logger.info("Fetching universities from reject")
+
     req = requests.get("https://rejectdopamine.com/api/app/find/inst", headers=HEADERS)
     req.raise_for_status()
 
@@ -229,6 +234,8 @@ def _get_unis():
 
 
 def _get_years(inst):
+    _logger.info(f"Fetching years from reject for {inst}")
+
     req = requests.get(
         f"https://rejectdopamine.com/api/app/find/{inst}/yr", headers=HEADERS
     )
@@ -239,6 +246,8 @@ def _get_years(inst):
 
 
 def _get_courses(inst, yr):
+    _logger.info(f"Fetching courses from reject for {inst} year {yr}")
+
     req = requests.get(
         f"https://rejectdopamine.com/api/app/find/{inst}/{yr}/crs", headers=HEADERS
     )
@@ -253,20 +262,21 @@ def _get_courses(inst, yr):
 
 
 def setup():
-    print("[REJ] Initialising setup...")
+    _logger.info("Initialising setup")
 
     unis = _get_unis()
     fuzzer = Fuzzer(list(unis.keys()) + list(unis.values()))
+
     for _ in range(10):
-        uni = input("[REJ] Enter your university.\r\n\t?> ")
+        uni = input("Enter your university.\r\n\t?> ")
 
         spells = fuzzer.spell_check_word(uni, options=5)
 
         if len(spells) == 1:
             if spells[0] in unis:
-                print(f"[REJ] Set your university to {unis[spells[0]]} ({spells[0]})")
+                print(f"Set your university to {unis[spells[0]]} ({spells[0]})")
             else:
-                print(f"[REJ] Set your university to {spells[0]}")
+                print(f"Set your university to {spells[0]}")
 
             uni = spells[0]
             break
@@ -274,44 +284,59 @@ def setup():
         elif len(spells) > 1:
             if spells[0] in unis:
                 option = input(
-                    f"[REJ] Did you mean {unis[spells[0]]} ({spells[0]})? [Y/n]\r\n\t?> "
+                    f"Did you mean {unis[spells[0]]} ({spells[0]})? [Y/n]\r\n\t?> "
                 )
             else:
-                option = input(f"[REJ] Did you mean {spells[0]}? [Y/n] \r\n\t?> ")
+                option = input(f"Did you mean {spells[0]}? [Y/n] \r\n\t?> ")
 
             if option.lower() == "y" or option == "":
-                print(f"[REJ] Set your university to {spells[0]}")
+                print(f"Set your university to {spells[0]}")
 
                 uni = spells[0]
                 break
 
     else:
-        print("[REJ] Check https://rejectdopamine.com/ for your university's code")
-        exit()
+        _logger.error(f"Error setting university")
+        print("Check https://rejectdopamine.com/ for your university's code")
+
+        return False
+
+    _logger.info(f"University set to {uni}")
 
     years = _get_years(uni)
 
-    year = int(input(f"[REJ] Enter your year. {years}\r\n\t?> "))
+    year = -1
 
-    if year not in years:
-        print("[REJ] Invalid year")
-        exit()
+    while int(year) not in years:
+        year = input(f"Enter your year of study. {years}\r\n\t?> ")
+
+        if not year.isdigit():
+            print("Invalid year")
+            year = -1
+
+            continue
+
+        if int(year) not in years:
+            print("Invalid year")
+            year = -1
+
+            continue
+
+    _logger.info(f"Year set to {year}")
 
     courses = _get_courses(uni, str(year))
     fuzzer = Fuzzer(list(courses.keys()) + list(courses.values()))
 
     for _ in range(10):
-        course = input("[REJ] Enter your university course.\r\n\t?> ")
+        course = input("Enter your university course.\r\n\t?> ")
 
         spells = fuzzer.spell_check_word(course, options=5)
 
         if len(spells) == 1:
             if spells[0] in courses:
-                print(
-                    f"[REJ] Set your course to {courses[spells[0]]} ({spells[0]})"
-                )
+                print(f"Set your course to {courses[spells[0]]} ({spells[0]})")
             else:
-                print(f"[REJ] Set your course to {spells[0]}")
+                print(f"Set your course to {spells[0]}")
 
             course = spells[0]
             break
@@ -319,20 +344,24 @@ def setup():
         elif len(spells) > 1:
             if spells[0] in courses:
                 option = input(
-                    f"[REJ] Did you mean {courses[spells[0]]} ({spells[0]})? [Y/n]\r\n\t> "
+                    f"Did you mean {courses[spells[0]]} ({spells[0]})? [Y/n]\r\n\t> "
                 )
             else:
-                option = input(f"[REJ] Did you mean {spells[0]}? [Y/n] \r\n\t?> ")
+                option = input(f"Did you mean {spells[0]}? [Y/n] \r\n\t?> ")
 
             if option.lower() == "y" or option == "":
-                print(f"[REJ] Set your course to {spells[0]}")
+                print(f"Set your course to {spells[0]}")
 
                 course = spells[0]
                 break
 
     else:
-        print("[REJ] Check https://rejectdopamine.com/ for your course's code")
-        exit()
+        _logger.error(f"Error setting course")
+
+        print("Check https://rejectdopamine.com/ for your course's code")
+        return False
+
+    _logger.info(f"Course set to {course}")
 
     return uni, year, course
 

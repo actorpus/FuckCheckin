@@ -1,17 +1,24 @@
 # OOD
 
+
+raise NotImplementedError("This script is not yet re-implemented")
+
+
 import rejector
 import json
 from datetime import datetime, timezone
 import time
-import main
+import checkster
 import winsound  # Windows only
 
 
 try:
-    print("This script uses the windows sounds methods, please enable and max the volume of system sounds.\r\n"
-          "It will activate an alarm if it cannot sign in at the last 15 minutes of a session\r\n"
-          "Playing a test sound now... ", end="")
+    print(
+        "This script uses the windows sounds methods, please enable and max the volume of system sounds.\r\n"
+        "It will activate an alarm if it cannot sign in at the last 15 minutes of a session\r\n"
+        "Playing a test sound now... ",
+        end="",
+    )
 
     time.sleep(4)
 
@@ -19,12 +26,13 @@ try:
         winsound.Beep(1000, 750)
         winsound.Beep(1500, 750)
 
-    print("Test sound played, If you did not hear it, please enable system sounds and try again")
+    print(
+        "Test sound played, If you did not hear it, please enable system sounds and try again"
+    )
     time.sleep(2)
 
-
     print("Loading main to test for hangups...")
-    main.main()
+    main.try_codes()
 
     print("Hopefully no hangups next time")
 
@@ -44,10 +52,13 @@ try:
             time.sleep(60 * 15)
             print("Waited")
 
-
         for session in sessions:
-            startcode = datetime.strptime(f"{session['startDate']} {session['startTime']}", "%a %b %d %Y %H:%M").timestamp()
-            endcode = datetime.strptime(f"{session['startDate']} {session['endTime']}", "%a %b %d %Y %H:%M").timestamp()
+            startcode = datetime.strptime(
+                f"{session['startDate']} {session['startTime']}", "%a %b %d %Y %H:%M"
+            ).timestamp()
+            endcode = datetime.strptime(
+                f"{session['startDate']} {session['endTime']}", "%a %b %d %Y %H:%M"
+            ).timestamp()
 
             if startcode < time.time() < endcode:
                 print("Currently active session detected")
@@ -64,7 +75,7 @@ try:
             continue
 
         print("Launching main script")
-        result = main.main()
+        result = main.try_codes()
 
         if result:
             print("Main script signed in successfully")

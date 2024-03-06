@@ -1,3 +1,5 @@
+# no I cant think of a better name
+
 import base64
 import os
 import sys
@@ -19,7 +21,6 @@ from PIL import Image
 import logging
 
 SETTINGSFILE = "duosession_DONOTSHARE.json"
-KEYSFILE = "settings_DONOTSHARE.json"
 
 _logger = logging.getLogger("DUO")
 
@@ -109,35 +110,13 @@ def manual_setup():
     _duo_auth(host, code)
 
 
-def automated_setup():
+def automated_setup(settings):
     _logger.info("Starting automated setup")
-
-    with open("usersettings.json") as file:
-        settings = json.load(file)
-        HEADLESS = not bool(int(settings["show_window"]))
 
     with open("offsets.json") as file:
         OFFSETS = json.load(file)
 
-    if os.path.exists(KEYSFILE):
-        with open(KEYSFILE, "r") as file:
-            s = json.load(file)
-            USERNAME = s["username"]
-            PASSWORD = s["password"]
-
-    else:
-        _logger.warning("No keys file found")
-
-        print("Please enter username and password")
-        USERNAME = input("username ?> ")
-        PASSWORD = input("password ?> ")
-
-        with open(KEYSFILE, "w") as file:
-            json.dump({"username": USERNAME, "password": PASSWORD}, file)
-
     options = Options()
-    if HEADLESS:
-        options.add_argument("-headless")
     driver = webdriver.Firefox(options=options)
 
     _logger.info("Navigating to duo.york.ac.uk/manage")
@@ -149,10 +128,10 @@ def automated_setup():
 
     _logger.info("Attempting to add duo device")
     username = driver.find_element("xpath", OFFSETS["username"])
-    username.send_keys(USERNAME)
+    username.send_keys(settings.username)
 
     password = driver.find_element("xpath", OFFSETS["password"])
-    password.send_keys(PASSWORD)
+    password.send_keys(settings.password)
 
     log_in = driver.find_element("xpath", OFFSETS["log_in"])
     log_in.click()
@@ -274,7 +253,7 @@ def automated_setup():
     os.remove(".duoqr.tmp.png")
 
 
-def check_setup():
+def check_setup(settings):
     if not os.path.exists(SETTINGSFILE):
         _logger.warning("Cannot find configuration, initialising setup")
 
@@ -283,7 +262,7 @@ def check_setup():
         )
 
         if option == "0":
-            automated_setup()
+            automated_setup(settings)
             _logger.info("Automated setup complete")
 
         elif option == "1":
@@ -292,13 +271,20 @@ def check_setup():
 
         else:
             _logger.error("Invalid option")
-            sys.exit(1)
+            return False
+
+    return True
 
 
 if __name__ == "__main__":
+    import settingzer
+
     logging.basicConfig(level=logging.INFO)
 
-    check_setup()
+    settings = settingzer.Settings()
+    # user will still have to fill in reject settings only leaving this in for the sake of exporting the secret
+
+    check_setup(settings)
 
     option = input(
         "[0] generate hotp code\r\n"
