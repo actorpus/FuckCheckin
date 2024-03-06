@@ -1,32 +1,20 @@
-# no I cant think of a better name
-
-import base64
-import os
-import sys
-import pyqrcode
-import pyotp
+import os.path
 import requests
-from Crypto.PublicKey import RSA
+from bs4 import BeautifulSoup
 import json
-from selenium import webdriver
-from selenium.common.exceptions import (
-    NoSuchElementException,
-    ElementNotInteractableException,
-    StaleElementReferenceException,
-)
-from selenium.webdriver.firefox.options import Options
-import time
-from pyzbar.pyzbar import decode
-from PIL import Image
+from Crypto.PublicKey import RSA
+import base64
 import logging
+import pyotp
+import requests.utils
 
-SETTINGSFILE = "duo_session.DONOTSHARE.json"
+DUO_KEYS_FILE = "duo_keys.DONOTSHARE.json"
 
 _logger = logging.getLogger("DUO")
 
 
 def generate_code():
-    with open(SETTINGSFILE, "r") as file:
+    with open(DUO_KEYS_FILE, "r") as file:
         settings = json.load(file)
 
     secret = settings["t"]
@@ -39,26 +27,333 @@ def generate_code():
 
     settings["c"] += 1
 
-    with open(SETTINGSFILE, "w") as j:
+    with open(DUO_KEYS_FILE, "w") as j:
         json.dump(settings, j)
 
     return code
 
 
-def export_code():
-    with open(SETTINGSFILE, "r") as file:
-        settings = json.load(file)
+def export_code(settings):
+    import pyqrcode
+
+    with open(DUO_KEYS_FILE, "r") as file:
+        duo_keys = json.load(file)
 
     qr = pyqrcode.create(
-        f'otpauth://hotp/DUOKEY?secret={settings["t"].strip("=")}&issuer=actorpus&counter={settings["c"]}'
+        f'otpauth://hotp/DUOKEY?secret={duo_keys["t"].strip("=")}&issuer={settings.username}&counter={duo_keys["c"]}'
     )
     print(qr.terminal(quiet_zone=4))
 
 
-def _duo_auth(host, code):
-    url = f"https://{host}/push/v2/activation/{code}?customer_protocol=1"
-    headers = {"User-Agent": "okhttp/2.7.5"}
-    data = {  # thanks to https://github.com/revalo/duo-bypass/commit/3dd0cf08bed7e7f5fbafa75b55320372528062d1
+def generate_duo_keys(settings):
+    session = requests.Session()
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+        "Accept": "text/html",
+        "Accept-Encoding": "gzip, deflate, br",
+    }
+
+    _logger.info("Loading initial page to initialise session and grab csrf token")
+
+    req = session.get(
+        "https://duo.york.ac.uk/manage",
+        headers=headers,
+    )
+
+    req.raise_for_status()
+
+    soup = BeautifulSoup(req.content.decode(), "html.parser")
+
+    form = soup.find("form", {"name": "login_form"})
+
+    csrf_token = form.find("input", {"name": "csrf_token"}).get("value")
+
+    filled_form = {
+        "j_username": settings.username,
+        "j_password": settings.password,
+        "csrf_token": csrf_token,
+        "_eventId_proceed": "",
+    }
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+        "Accept": "text/html",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Host": "shib.york.ac.uk",
+        "Referer": req.url,
+        "Origin": "https://shib.york.ac.uk",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-User": "?1",
+    }
+
+    _logger.info("Submitting username and password to generate SAMl response")
+
+    req = session.post(
+        "https://shib.york.ac.uk" + form.get("action"),
+        headers=headers,
+        data=filled_form,
+    )
+
+    req.raise_for_status()
+
+    soup = BeautifulSoup(req.content.decode(), "html.parser")
+
+    action = soup.find("form").get("action")
+    relay_state = soup.find("input", {"name": "RelayState"}).get("value")
+    SAMLResponse = soup.find("input", {"name": "SAMLResponse"}).get("value")
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+        "Accept": "text/html",
+        "Accept-Encoding": "gzip, deflate, br",
+        # "Host": "auth.aws.york.ac.uk",  # the internet works in weird ways sometimes
+        "Origin": "https://shib.york.ac.uk",
+        "Referer": "https://shib.york.ac.uk",
+        "Connection": "keep-alive",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "same-site",
+        "Sec-Fetch-User": "?1",
+        "Sec-GPC": "1",
+        "Prefer": "safe",
+        "DNT": "1",
+    }
+
+    data = {
+        "RelayState": relay_state,
+        "SAMLResponse": SAMLResponse,
+    }
+
+    _logger.info("Submitting SAML response to grab duo session token")
+
+    req = session.post(action, headers=headers, data=data)
+
+    req.raise_for_status()
+
+    soup = BeautifulSoup(req.content.decode(), "html.parser")
+
+    script = soup.findAll("script")
+    script = [s for s in script if "Duo.init" in s.text][0].text
+
+    host = script.split("host': '")[1].split("'")[0]
+    sig_request = script.split("sig_request': '")[1].split("'")[0]
+
+    tx_token, app_token = sig_request.split(":")
+
+    device_info = {
+        "tx": tx_token,
+        "parent": "https://duo.york.ac.uk/manage",
+        "version": "",
+        "akey": "",
+        "has_session_trust_analysis_feature": "False",
+        "session_trust_extension_id": "",
+        "java_version": "",
+        "flash_version": "",
+        "screen_resolution_width": "1920",
+        "screen_resolution_height": "1080",
+        "extension_instance_key": "",
+        "color_depth": "24",
+        "has_touch_capability": "false",
+        "ch_ua_error": "",
+        "client_hints": "",
+        "is_cef_browser": "false",
+        "is_ipad_os": "false",
+        "is_ie_compatibility_mode": "",
+        "is_user_verifying_platform_authenticator_available": "false",
+        "user_verifying_platform_authenticator_available_error": "",
+        "acting_ie_version": "",
+        "react_support": "true",
+        "react_support_error_message": "",
+    }
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+        "Accept": "text/html",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Host": host,
+        "Origin": "https://" + host,
+        "Referer": "https://"
+        + host
+        + "/frame/web/v1/auth?tx="
+        + tx_token
+        + "&parent=https://duo.york.ac.uk/manage&v=2.6",
+        "Sec-Fetch-Dest": "iframe",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-GPC": "1",
+        "Prefer": "safe",
+        "DNT": "1",
+    }
+
+    _logger.info("Submitting device information to DUO")
+
+    req = session.post(
+        "https://"
+        + host
+        + "/frame/web/v1/auth?tx="
+        + tx_token
+        + "&parent=https://duo.york.ac.uk/manage&v=2.6",
+        headers=headers,
+        data=device_info,
+    )
+
+    req.raise_for_status()
+
+    soup = BeautifulSoup(req.content.decode(), "html.parser")
+
+    things = [
+        "sid",
+        "akey",
+        "txid",
+        "response_timeout",
+        "parent",
+        "duo_app_url",
+        "eh_service_url",
+        "eh_download_link",
+        "_xsrf",
+        "is_silent_collection",
+        "has_chromium_http_feature",
+    ]
+
+    data = {}
+
+    for thing in things:
+        data[thing] = soup.find("input", {"name": thing}).get("value")
+
+    _logger.info("Submitting device information to DUO (2)")
+
+    req = session.post(
+        "https://"
+        + host
+        + "/frame/web/v1/auth?tx="
+        + tx_token
+        + "&parent=https://duo.york.ac.uk/manage&v=2.6",
+        headers=headers,
+        data=data,
+    )
+
+    req.raise_for_status()
+
+    soup = BeautifulSoup(req.content.decode(), "html.parser")
+
+    sid_token = soup.find("input", {"name": "sid"}).get("value")
+    xsrf_token = soup.find("input", {"name": "_xsrf"}).get("value")
+
+    data = {
+        "sid": sid_token,
+        "device": "phone1",
+        "factor": "Duo Push",  # Not Duo+Push as the trace suggests
+        "out_of_date": "",
+        "days_out_of_date": "",
+        "days_to_block": "None",
+    }
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+        "Accept": "text/plain",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Host": host,
+        "Origin": "https://" + host,
+        "Referer": "https://" + host + "/frame/prompt?sid=" + sid_token,
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-GPC": "1",
+        "DNT": "1",
+    }
+
+    _logger.info("Generating Duo Push request")
+
+    req = session.post(
+        "https://" + host + "/frame/prompt",
+        headers=headers,
+        data=data,
+    )
+
+    req.raise_for_status()
+
+    response = req.json()
+
+    txid_token = response["response"]["txid"]
+
+    data = {
+        "sid": sid_token,
+        "txid": txid_token,
+    }
+
+    _logger.info("Getting status of Duo Push")
+
+    req = session.post(
+        "https://" + host + "/frame/status",
+        headers=headers,
+        data=data,
+    )
+
+    req.raise_for_status()
+
+    print("Accept the duo push")
+
+    _logger.info("Waiting for Duo Push to be accepted, (status request)")
+
+    req = session.post(
+        "https://" + host + "/frame/status",
+        headers=headers,
+        data=data,
+    )
+
+    req.raise_for_status()
+
+    response = req.json()
+
+    if response["response"]["result"] != "SUCCESS":
+        _logger.warning("Failed to get status, Duo Push may not have been accepted")
+        return False
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+        "Accept": "text/html",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Host": host,
+        "Referer": "https://"
+        + host
+        + "/frame/enroll/install_mobile_app?sid="
+        + sid_token
+        + "&from_settings=1",
+        "Sec-Fetch-Dest": "iframe",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-User": "?1",
+        "Sec-GPC": "1",
+        "DNT": "1",
+    }
+
+    _logger.info("Activating mobile device to get qr secret")
+
+    req = session.get(
+        "https://"
+        + host
+        + "/frame/enroll/mobile_activate?sid="
+        + sid_token
+        + "&platform=Android&_xsrf="
+        + xsrf_token,
+        headers=headers,
+    )
+
+    soup = BeautifulSoup(req.content.decode(), "html.parser")
+
+    qr_image = soup.findAll("img")
+    qr_image = [i for i in qr_image if "frame/qr?value=" in i.get("src")][0]
+    code = qr_image.get("src").split("frame/qr?value=")[1].split("-")[0]
+
+    headers = {
+        "User-Agent": "okhttp/2.7.5",
+        "Accept": "application/json",
+    }
+
+    data = {
         "pkpush": "rsa-sha512",
         "pubkey": RSA.generate(2048).public_key().export_key("PEM").decode(),
         "jailbroken": "false",
@@ -77,214 +372,49 @@ def _duo_auth(host, code):
         "security_patch_level": "2021-02-01",
     }
 
-    r = requests.post(url, headers=headers, data=data)
-    response = json.loads(r.text)
+    # thanks to https://github.com/revalo/duo-bypass/commit/3dd0cf08bed7e7f5fbafa75b55320372528062d1
+
+    _logger.info("Simulating mobile activation to get Duo Keys")
+
+    req = requests.post(
+        f"https://{host}/push/v2/activation/{code}?customer_protocol=1",
+        headers=headers,
+        data=data,
+    )
+    response = json.loads(req.text)
 
     try:
         secret = base64.b32encode(response["response"]["hotp_secret"].encode())
     except KeyError:
-        print(response)
-        sys.exit(1)
+        _logger.warning("Failed to get secret")
+        return False
 
-    with open(SETTINGSFILE, "w") as file:
+    with open(DUO_KEYS_FILE, "w") as file:
         json.dump({"t": secret.decode(), "c": 0}, file)
 
-    _logger.info("Authentication successful")
+    _logger.info("Duo keys generated")
 
-
-def manual_setup():
-    _logger.info("Starting manual setup")
-
-    print(
-        "[DUO] Navigate to https://duo.york.ac.uk/manage \r\n\t+Add another divice\r\n\t"
-        "Tablet\r\n\tAndroid\r\n\tI Have Duo Mobile Installed\r\n\tEmail me an..."
-    )
-
-    email = input("[DUO] Enter the link sent your email ?> ")
-
-    host = email.split(".")[0].split("-")[1]
-    host = f"api-{host}.duosecurity.com"
-
-    code = email.rsplit("/", 1)[1]
-
-    _duo_auth(host, code)
-
-
-def automated_setup(settings):
-    _logger.info("Starting automated setup")
-
-    with open("offsets.json") as file:
-        OFFSETS = json.load(file)
-
-    options = Options()
-    driver = webdriver.Firefox(options=options)
-
-    _logger.info("Navigating to duo.york.ac.uk/manage")
-
-    driver.get("https://duo.york.ac.uk/manage")
-
-    while not driver.execute_script("return document.readyState") == "complete":
-        time.sleep(0.2)
-
-    _logger.info("Attempting to add duo device")
-    username = driver.find_element("xpath", OFFSETS["username"])
-    username.send_keys(settings.username)
-
-    password = driver.find_element("xpath", OFFSETS["password"])
-    password.send_keys(settings.password)
-
-    log_in = driver.find_element("xpath", OFFSETS["log_in"])
-    log_in.click()
-
-    while not driver.current_url == "https://duo.york.ac.uk/manage":
-        time.sleep(0.2)
-    while not driver.execute_script("return document.readyState") == "complete":
-        time.sleep(0.2)
-    time.sleep(1)
-
-    duo_frame = driver.find_element("xpath", OFFSETS["duo_frame"])
-
-    driver.switch_to.frame(duo_frame)
-
-    _logger.info("Attempting to push duo button")
-
-    for _ in range(50):
-        try:
-            push_button = driver.find_element("xpath", OFFSETS["duo_push"])
-            time.sleep(0.2)
-            push_button.click()
-            break
-        except NoSuchElementException:
-            time.sleep(0.2)
-        except ElementNotInteractableException:
-            time.sleep(0.2)
-        except StaleElementReferenceException:
-            time.sleep(0.2)
-    else:
-        _logger.error("Duo did not load / took to long to load")
-        exit()
-
-    print("[DUO] Please accept the duo push")
-
-    _logger.info("Waiting for duo push to be accepted")
-
-    for _ in range(50):
-        try:
-            t = driver.find_element("xpath", '//*[@id="header-title"]')
-
-            time.sleep(0.2)
-            break
-        except NoSuchElementException:
-            time.sleep(0.2)
-
-    else:
-        _logger.error("Duo did not load / took to long to load")
-        exit()
-
-    add_device = driver.find_element("xpath", OFFSETS["duo_add_device"])
-    add_device.click()
-
-    while not driver.execute_script("return document.readyState") == "complete":
-        time.sleep(0.2)
-
-    add_tablet = driver.find_element("xpath", OFFSETS["duo_add_tablet"])
-    add_tablet.click()
-
-    add_continue = driver.find_element("xpath", OFFSETS["duo_add_continue"])
-    add_continue.click()
-
-    while not driver.execute_script("return document.readyState") == "complete":
-        time.sleep(0.2)
-
-    add_android = driver.find_element("xpath", OFFSETS["duo_add_android"])
-    add_android.click()
-
-    add_continue = driver.find_element("xpath", OFFSETS["duo_add_continue"])
-    add_continue.click()
-
-    while not driver.execute_script("return document.readyState") == "complete":
-        time.sleep(0.2)
-
-    installed = driver.find_element("xpath", OFFSETS["duo_installed"])
-    installed.click()
-
-    while not driver.execute_script("return document.readyState") == "complete":
-        time.sleep(0.2)
-
-    qr = driver.find_element("xpath", OFFSETS["duo_qr"])
-    qr_url = qr.get_attribute("src")
-
-    _logger.info("Downloading QR code")
-
-    req = requests.get(
-        qr_url,
-        headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0"
-        },
-        stream=True,
-    )
-    req.raise_for_status()
-
-    with open(".duoqr.tmp.png", "wb") as file:
-        for chunk in req.iter_content(chunk_size=8192):
-            file.write(chunk)
-
-    img = Image.open(".duoqr.tmp.png")
-    data = decode(img)
-    data = data[0].data.decode()
-    data = data.split("-")
-
-    host = data[1] + "=" * (4 - len(data[1]) % 4)
-    host = base64.b64decode(host).decode()
-    host = host.split(".")[0].split("-")[1]
-    host = f"api-{host}.duosecurity.com"
-    code = data[0]
-
-    _duo_auth(host, code)
-
-    add_continue = driver.find_element("xpath", OFFSETS["duo_add_continue"])
-    add_continue.click()
-
-    while not driver.execute_script("return document.readyState") == "complete":
-        time.sleep(0.2)
-    time.sleep(1)
-
-    driver.quit()
-    os.remove(".duoqr.tmp.png")
+    return True
 
 
 def check_setup(settings):
-    if not os.path.exists(SETTINGSFILE):
-        _logger.warning("Cannot find configuration, initialising setup")
+    if not os.path.exists(DUO_KEYS_FILE):
+        _logger.warning("Cannot find duo keys, initialising setup")
 
-        option = input(
-            "[0] Automated duo setup (recommended)\r\n" "[1] Manual duo setup\r\n" "?> "
-        )
-
-        if option == "0":
-            automated_setup(settings)
-            _logger.info("Automated setup complete")
-
-        elif option == "1":
-            manual_setup()
-            _logger.info("Manual setup complete")
-
-        else:
-            _logger.error("Invalid option")
-            return False
+        return generate_duo_keys(settings)
 
     return True
 
 
 if __name__ == "__main__":
-    import settingzer
+    import settings_handler
 
     logging.basicConfig(level=logging.INFO)
 
-    settings = settingzer.Settings()
+    _settings = settingzer.Settings()
     # user will still have to fill in reject settings only leaving this in for the sake of exporting the secret
 
-    check_setup(settings)
+    check_setup(_settings)
 
     option = input(
         "[0] generate hotp code\r\n"
@@ -296,8 +426,7 @@ if __name__ == "__main__":
         print(generate_code())
 
     elif option == "1":
-        export_code()
+        export_code(_settings)
 
     else:
         print("Invalid option")
-        sys.exit(1)

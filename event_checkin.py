@@ -8,9 +8,9 @@ import sys
 import logging
 
 import duo
-import rejector
-import SHIBinator
-import settingzer
+import reject_api
+import SHIB_session_generator
+import settings_handler
 
 
 HEADERS = {"User-Agent": "FuckCheckin/1.1"}

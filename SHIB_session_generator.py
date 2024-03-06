@@ -324,14 +324,13 @@ def generate_session_token(settings):
 
 
 if __name__ == "__main__":
-    with open("settings_DONOTSHARE.json") as file:
-        settings = json.load(file)
-        username = settings["username"]
-        password = settings["password"]
+    import settings_handler
+
+    _settings = settingzer.Settings()
 
     logging.basicConfig(level=logging.INFO)
 
     logging.log(logging.INFO, "Starting session token generation")
 
-    cookies = generate_session_token(username, password)
+    cookies = generate_session_token(_settings)
     pprint(cookies)

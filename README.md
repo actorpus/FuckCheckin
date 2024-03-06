@@ -1,15 +1,25 @@
 # Fuck the checkin system V2
 
-Duo configuration still needs selenium, if running on remote server configure first on desktop then copy duo_session onto server.
-Everything past configuration is done without browser emulation.
+V2 ditches selenium and emulates the entire setup signing and session systems from good old web requests only!
+When being run for the first time a duo push will need to be accepted, 
+after that the code registers itself as a duo device and can authorise its own signings
 
-Or run the configuration with the manual setup mode but that's a fair bit more effort
+Be cautious not to share files marked with `.DONOTSHARE.` as they can contain sensitive information
+(Username, Password, Duo tokens)
 
-If youve just moved onto the testing branch bin off your old config files (duo can stay)
+If upgrading to V2 delete both the duo session file and the settings file, V2 uses new architecture for both.
+Old devices can be removed at https://duo.york.ac.uk/manage
+
+### TODO:
+- [x] Reimplement session management to not use browser emulation
+- [x] Reimplement Duo setup script to not use browser emulation
+- [ ] Reimplement sentry system to work with new architecture
 
 -----------------
 
-## RejectDopamine (CheckOut)
+# Thanks to:
+
+### RejectDopamine (CheckOut)
 This app uses [reject](https://rejectdopamine.com/) as the backend for sharing / getting codes!
 Go show them some love!
 
