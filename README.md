@@ -1,17 +1,11 @@
-# Fuck the checkin system
+# Fuck the checkin system V2
 
-Run duo.py on its own for the option to export the totp 
-(let it handle configuration first)
+Duo configuration still needs selenium, if running on remote server configure first on desktop then copy duo_session onto server.
+Everything past configuration is done without browser emulation.
 
-if you improve please for all our sakes make a pr! 
-Also, please pr in links to other similar projects 
-(websites / browser extensions ect)
+Or run the configuration with the manual setup mode but that's a fair bit more effort
 
-if you plan on using firefox you will probably need the 
-[Geckodriver](https://github.com/mozilla/geckodriver)
-
-if running on remote server a desktop will need to be installed 
-or selenium won't work, see [this](https://shallowsky.com/blog/programming/selenium-headless.html)
+If youve just moved onto the testing branch bin off your old config files (duo can stay)
 
 -----------------
 

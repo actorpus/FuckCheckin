@@ -5,3 +5,4 @@ selenium~=4.18.1
 pyzbar~=0.1.9
 pillow~=10.2.0
 pycryptodome~=3.20.0
+beautifulsoup4~=4.12.3

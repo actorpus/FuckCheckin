@@ -20,7 +20,7 @@ from pyzbar.pyzbar import decode
 from PIL import Image
 import logging
 
-SETTINGSFILE = "duosession_DONOTSHARE.json"
+SETTINGSFILE = "duo_session.DONOTSHARE.json"
 
 _logger = logging.getLogger("DUO")
 
