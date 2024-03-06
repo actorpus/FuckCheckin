@@ -50,7 +50,7 @@ class Settings:
 
         username = input("Username ?> ")
         password = input("Password ?> ")
-        institution, year, course = rejector.setup()
+        institution, year, course = reject_api.setup()
 
         with open(SETTINGS_FILE, "w") as file:
             json.dump(

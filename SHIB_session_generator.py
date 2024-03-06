@@ -326,7 +326,7 @@ def generate_session_token(settings):
 if __name__ == "__main__":
     import settings_handler
 
-    _settings = settingzer.Settings()
+    _settings = settings_handler.Settings()
 
     logging.basicConfig(level=logging.INFO)
 

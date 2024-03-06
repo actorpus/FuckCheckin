@@ -6,7 +6,6 @@ from bs4 import BeautifulSoup
 from pprint import pprint
 import sys
 import logging
-
 import duo
 import reject_api
 import SHIB_session_generator
@@ -139,18 +138,18 @@ def try_codes(codes, xsrf_token, session):
 
 def main():
     _logger.info("Checking for settings")
-    settings = settingzer.Settings()
+    settings = settings_handler.Settings()
 
     _logger.info("Checking for duo settings")
     duo.check_setup(settings)
 
     _logger.info("Generating session tokens")
-    _session_tokens = SHIBinator.generate_session_token(settings)
+    _session_tokens = SHIB_session_generator.generate_session_token(settings)
     xsrf_token = _session_tokens["XSRF-TOKEN"]
     session = _session_tokens["prestostudent_session"]
 
     _logger.info("Getting codes")
-    codes = rejector.getCodes(settings)
+    codes = reject_api.getCodes(settings)
 
     if not codes:
         _logger.warning("No codes found, exiting")

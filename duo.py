@@ -411,7 +411,7 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
 
-    _settings = settingzer.Settings()
+    _settings = settings_handler.Settings()
     # user will still have to fill in reject settings only leaving this in for the sake of exporting the secret
 
     check_setup(_settings)
