@@ -48,7 +48,7 @@ def get_checkin_events_token(session):
 
     token = soup.find("meta", {"name": "csrf-token"})["content"]
 
-    classes = soup.find_all("div", {"class": "text-block bs"})
+    classes = soup.find_all("section", {"class": "box-typical box-typical-padding"})
     events = []
 
     for _class in classes:
@@ -58,7 +58,7 @@ def get_checkin_events_token(session):
             "lecturer": _class.find_all("div", {"class": "col-md-4"})[2].text.strip(),
             "space": _class.find_all("div", {"class": "col-md-4"})[3].text.strip(),
             "status": "unknown",
-            "id": _class.find("div", {"attr": "data-activities-id"}).get(
+            "id": _class.get(
                 "data-activities-id"
             ),
         }
@@ -69,9 +69,16 @@ def get_checkin_events_token(session):
             if o.get("class")[-1] == "hidden":
                 continue
 
-            event["status"] = o.find(
-                "div", {"class": "widget-simple-sm-bottom"}
-            ).text.strip()
+            widget = o.find("div", {"class": "widget-simple-sm-bottom"})
+
+            if widget is not None:
+                event["status"] = o.find(
+                    "div", {"class": "widget-simple-sm-bottom"}
+                ).text.strip()
+
+                continue
+
+            event["status"] = "NotPresent"
 
             break
 
