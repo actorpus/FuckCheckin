@@ -51,6 +51,14 @@ def get_checkin_events_token(session):
     classes = soup.find_all("section", {"class": "box-typical box-typical-padding"})
     events = []
 
+    if not classes:
+        _logger.warning("No class objects found")
+        return [], token
+
+    if classes[0].text.__contains__("There is currently no activity for which you can register yourself."):
+        _logger.info("No classes found")
+        return [], token
+
     for _class in classes:
         event = {
             "time": _class.find_all("div", {"class": "col-md-4"})[0].text.strip(),
