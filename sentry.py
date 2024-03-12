@@ -5,12 +5,35 @@ import logging
 import time
 import datetime
 import reject_api
+import atexit
+import winsound
 
 
 logging.basicConfig(level=logging.INFO)
 _logger = logging.getLogger("SENTRY")
 _user_logger = logging.getLogger("SENTRY_USER")
 _user_logger.addHandler(logging.FileHandler("sentry.log"))
+
+
+
+def sound_alarm():
+    # Feel free to implement your own alarm (could send request to webhook or call your phone)
+
+    while True:
+        winsound.Beep(1000, 1000)
+        time.sleep(1)
+
+
+# Using atexit as a way to handle unexpected exits as it cannot be stopped by any form of exception
+# Other than your server dying I guess but that's not my fault :)
+@atexit.register
+def unexpected_exit():
+    _logger.critical("Unexpected exit, could be result of exception, starting alarm")
+    _user_logger.critical("Unexpected exit, could be result of exception, starting alarm")
+
+    sound_alarm()
+
+_logger.info("Exit alarm registered")
 
 
 def wait_until_next_half():
@@ -21,7 +44,15 @@ def wait_until_next_half():
 
     _logger.info(f"Sleeping until {target}, {(target - current).total_seconds().__floor__()} seconds left")
 
-    time.sleep((target - current).total_seconds())
+    try:
+        time.sleep((target - current).total_seconds())
+
+    except KeyboardInterrupt:
+        _logger.info("User interrupted during sleep, unregistering alarm")
+
+        atexit.unregister(unexpected_exit)
+        exit(0)
+
 
 settings = settings_handler.Settings()
 first_run = True
