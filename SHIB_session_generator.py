@@ -2,11 +2,10 @@ import logging
 import requests
 from bs4 import BeautifulSoup
 from pprint import pprint
-import json
 import duo
 
 
-def generate_session_token(settings):
+def generate_session_token(settings) -> dict[str: str]:
     logger = logging.getLogger("SessionGenerator")
 
     headers = {

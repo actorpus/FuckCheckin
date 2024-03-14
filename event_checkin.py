@@ -1,10 +1,5 @@
-import time
 import requests
-import json
-import os
 from bs4 import BeautifulSoup
-from pprint import pprint
-import sys
 import logging
 import datetime
 
@@ -19,14 +14,14 @@ _logger = logging.getLogger("CHECKSTER")
 BASETIME = datetime.datetime.now().strftime("%y %m %d ")
 
 
-def get_checkin_events_token(session):
+def get_checkin_events_token(session: dict[str: str]):
     _logger.info("Loading the checkin page")
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
         "Accept": "text/html",
         "Accept-Encoding": "gzip, deflate, br",
-        "Cookie": f"prestostudent_session={session}",
+        "Cookie": f"prestostudent_session={session['prestostudent_session']}",
     }
 
     req: requests.Response = requests.get(
@@ -104,7 +99,7 @@ def get_checkin_events_token(session):
     return events, token
 
 
-def try_code(event_id, code, xsrf_token, session, token):
+def try_code(event_id, code, session: dict[str: str], token):
     req = requests.post(
         f"https://checkin.york.ac.uk/api/selfregistration/{event_id}/present",
         headers={
@@ -113,7 +108,7 @@ def try_code(event_id, code, xsrf_token, session, token):
             "Accept-Encoding": "gzip, deflate, br",
             "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
             "Referer": "https://checkin.york.ac.uk/selfregistration",
-            "Cookie": f"XSRF-TOKEN={xsrf_token}; prestostudent_session={session}",
+            "Cookie": f"XSRF-TOKEN={session['XSRF-TOKEN']}; prestostudent_session={session['prestostudent_session']}",
         },
         data={
             "code": code,
@@ -129,7 +124,7 @@ def try_code(event_id, code, xsrf_token, session, token):
     return True
 
 
-def try_codes(codes, xsrf_token, session):
+def try_codes(codes, session: dict[str: str]):
     _logger.info("Starting code checking process")
 
     events, token = get_checkin_events_token(session)
@@ -144,7 +139,7 @@ def try_codes(codes, xsrf_token, session):
         _logger.info(f"Attempting to sign in to event {event['activity']}")
 
         for code in codes:
-            result = try_code(event["id"], code, xsrf_token, session, token)
+            result = try_code(event["id"], code, session, token)
 
             if result:
                 _logger.info(f"Non failure during sign-in to event {event['activity']}")
@@ -169,8 +164,6 @@ def main():
 
     _logger.info("Generating session tokens")
     _session_tokens = SHIB_session_generator.generate_session_token(settings)
-    xsrf_token = _session_tokens["XSRF-TOKEN"]
-    session = _session_tokens["prestostudent_session"]
 
     _logger.info("Getting codes")
     codes = reject_api.getCodes(settings)
@@ -179,7 +172,7 @@ def main():
         _logger.warning("No codes found, exiting")
         return False
 
-    return try_codes(codes, xsrf_token, session)
+    return try_codes(codes, _session_tokens)
 
 
 if __name__ == "__main__":

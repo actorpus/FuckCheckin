@@ -15,7 +15,6 @@ _user_logger = logging.getLogger("SENTRY_USER")
 _user_logger.addHandler(logging.FileHandler("sentry.log"))
 
 
-
 def sound_alarm():
     # Feel free to implement your own alarm (could send request to webhook or call your phone)
     while True:
@@ -63,7 +62,7 @@ while True:
     first_run = False
 
     session_tokens = SHIB_session_generator.generate_session_token(settings)
-    events, token = event_checkin.get_checkin_events_token(session_tokens["prestostudent_session"])
+    events, token = event_checkin.get_checkin_events_token(session_tokens)
 
     if not events:
         _logger.warning("No events found")
@@ -86,16 +85,18 @@ while True:
         _logger.info("Codes found, attempting to sign in to events")
         _user_logger.info(f"Codes found: {', '.join([str(a) for a in codes])}")
 
-        event_checkin.try_codes(codes, session_tokens["XSRF-TOKEN"], session_tokens["prestostudent_session"])
+        # event_checkin.try_codes(codes, session_tokens["XSRF-TOKEN"], session_tokens["prestostudent_session"])
+        event_checkin.try_codes(codes, session_tokens)
 
         events, token = event_checkin.get_checkin_events_token(session_tokens["prestostudent_session"])
 
+        # Check for any almost over
         if any(
             event["end_time"] - datetime.datetime.now() < datetime.timedelta(minutes=15)
             for event in events
         ):
-            _logger.warning("One or more events have less than 15 minutes left, unregistering and starting alarm")
-            _user_logger.warning("One or more events have less than 15 minutes left, unregistering and starting alarm")
+            _logger.error("One or more events have less than 15 minutes left, unregistering and starting alarm")
+            _user_logger.error("One or more events have less than 15 minutes left, unregistering and starting alarm")
 
             atexit.unregister(unexpected_exit)
             sound_alarm()
