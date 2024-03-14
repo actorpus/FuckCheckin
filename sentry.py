@@ -1,13 +1,13 @@
-import settings_handler
-import event_checkin
-import SHIB_session_generator
+import atexit
+import datetime
 import logging
 import time
-import datetime
-import reject_api
-import atexit
 import winsound
 
+import SHIB_session_generator
+import event_checkin
+import reject_api
+import settings_handler
 
 logging.basicConfig(level=logging.INFO)
 _logger = logging.getLogger("SENTRY")
@@ -74,8 +74,6 @@ while True:
     _user_logger.info(f"Events found: {', '.join([event['time'] + ' ' + event['activity'] for event in events])}")
 
     while any(event["status"] not in ["Present", "Present Late"] for event in events):
-        print(events)
-
         _logger.info("Not all events are signed into")
 
         codes = reject_api.getCodes(settings, return_events=False)
@@ -83,10 +81,11 @@ while True:
         if not codes:
             _logger.warning("No codes found, waiting one minute")
             time.sleep(60)
+            # No point refreshing the events as no codes means no possible change in state
             continue
 
         _logger.info("Codes found, attempting to sign in to events")
-        _user_logger.info(f"Codes found: {', '.join(codes)}")
+        _user_logger.info(f"Codes found: {', '.join([str(a) for a in codes])}")
 
         event_checkin.try_codes(codes, session_tokens["XSRF-TOKEN"], session_tokens["prestostudent_session"])
 
