@@ -13,7 +13,8 @@ Old devices can be removed at https://duo.york.ac.uk/manage
 ### TODO:
 - [x] Reimplement session management to not use browser emulation
 - [x] Reimplement Duo setup script to not use browser emulation
-- [ ] Reimplement sentry system to work with new architecture
+- [x] Reimplement sentry system to work with new architecture
+- [ ] Add optional discord / telegram / whatsapp (?) integration 
 
 -----------------
 
