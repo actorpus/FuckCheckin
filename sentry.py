@@ -18,7 +18,6 @@ _user_logger.addHandler(logging.FileHandler("sentry.log"))
 
 def sound_alarm():
     # Feel free to implement your own alarm (could send request to webhook or call your phone)
-
     while True:
         winsound.Beep(1000, 1000)
         time.sleep(1)
@@ -71,7 +70,7 @@ while True:
         continue
 
     _logger.info("Events found")
-    _user_logger.info(f"Events found: {', '.join([event['time'] + ' ' + event['activity'] for event in events])}")
+    _user_logger.info(f"Events found: {', '.join([event['start_time'].strftime('%H:%M ') + event['activity'] for event in events])}")
 
     while any(event["status"] not in ["Present", "Present Late"] for event in events):
         _logger.info("Not all events are signed into")
@@ -91,8 +90,16 @@ while True:
 
         events, token = event_checkin.get_checkin_events_token(session_tokens["prestostudent_session"])
 
-        # TODO: Somehow wake the user up if any events are not signed into and have less than 15 minutes left
-        #       event["time"] plus 45 minuets or implement finish time scraping
+        if any(
+            event["end_time"] - datetime.datetime.now() < datetime.timedelta(minutes=15)
+            for event in events
+        ):
+            _logger.warning("One or more events have less than 15 minutes left, unregistering and starting alarm")
+            _user_logger.warning("One or more events have less than 15 minutes left, unregistering and starting alarm")
+
+            atexit.unregister(unexpected_exit)
+            sound_alarm()
+            exit()
 
     _logger.info("All events are signed into")
     _user_logger.info("All events are signed into")

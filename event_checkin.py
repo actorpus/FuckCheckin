@@ -6,6 +6,8 @@ from bs4 import BeautifulSoup
 from pprint import pprint
 import sys
 import logging
+import datetime
+
 import duo
 import reject_api
 import SHIB_session_generator
@@ -14,6 +16,7 @@ import settings_handler
 
 HEADERS = {"User-Agent": "FuckCheckin/1.1"}
 _logger = logging.getLogger("CHECKSTER")
+BASETIME = datetime.datetime.now().strftime("%y %m %d ")
 
 
 def get_checkin_events_token(session):
@@ -60,8 +63,14 @@ def get_checkin_events_token(session):
         return [], token
 
     for _class in classes:
+        time = _class.find_all("div", {"class": "col-md-4"})[0].text.strip()
+        start, end = time.split(" - ")
+        start = datetime.datetime.strptime(BASETIME + start, "%y %m %d %H:%M")
+        end = datetime.datetime.strptime(BASETIME + end, "%y %m %d %H:%M")
+
         event = {
-            "time": _class.find_all("div", {"class": "col-md-4"})[0].text.strip(),
+            "start_time": start,
+            "end_time": end,
             "activity": _class.find_all("div", {"class": "col-md-4"})[1].text.strip(),
             "lecturer": _class.find_all("div", {"class": "col-md-4"})[2].text.strip(),
             "space": _class.find_all("div", {"class": "col-md-4"})[3].text.strip(),
