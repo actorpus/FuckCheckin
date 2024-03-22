@@ -7,6 +7,7 @@ import duo
 
 def generate_session_token(settings) -> dict[str: str]:
     logger = logging.getLogger("SessionGenerator")
+    logger.info("Generating session token")
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
@@ -14,7 +15,7 @@ def generate_session_token(settings) -> dict[str: str]:
         "Accept-Encoding": "gzip, deflate, br",
     }
 
-    logger.info("Loading initial page to initialise session and grab csrf token")
+    logger.debug("Loading initial page to initialise session and grab csrf token")
 
     session = requests.Session()
 
@@ -33,7 +34,7 @@ def generate_session_token(settings) -> dict[str: str]:
     # get the csrf token from the hidden input
     token = form.find("input", {"name": "csrf_token"}).get("value")
 
-    logger.info("Submitting username and password to grab duo session token")
+    logger.debug("Submitting username and password to grab duo session token")
 
     filled_form = {
         "j_username": settings.username,
@@ -56,7 +57,7 @@ def generate_session_token(settings) -> dict[str: str]:
 
     csrf_token = soup.find("input", {"name": "csrf_token"}).get("value")
 
-    logger.info("Fetching duo frame to get APP and device defaults")
+    logger.debug("Fetching duo frame to get APP and device defaults")
     # Get the initial iframe, contains defaults for device search request
 
     headers = {
@@ -99,7 +100,7 @@ def generate_session_token(settings) -> dict[str: str]:
     for input in soup.find_all("input"):
         data[input.get("name")] = input.get("value")
 
-    logger.info("Submitting device information to DUO")
+    logger.debug("Submitting device information to DUO")
 
     data["screen_resolution_width"] = "1920"
     data["screen_resolution_height"] = "1080"
@@ -120,7 +121,7 @@ def generate_session_token(settings) -> dict[str: str]:
 
     soup = BeautifulSoup(req.content.decode(), "html.parser")
 
-    logger.info("Aggregating DUO session token")
+    logger.debug("Aggregating DUO session token")
 
     data = {}
 
@@ -150,7 +151,7 @@ def generate_session_token(settings) -> dict[str: str]:
         headers=headers,
     ).raise_for_status()
 
-    logger.info("Submitting generated duo code to DUO")
+    logger.debug("Submitting generated duo code to DUO")
 
     code = duo.generate_code()
 
@@ -185,7 +186,7 @@ def generate_session_token(settings) -> dict[str: str]:
 
     response = req.json()
 
-    logger.info("Getting result url from DUO")
+    logger.debug("Getting result url from DUO")
 
     data = {
         "sid": sid,
@@ -202,7 +203,7 @@ def generate_session_token(settings) -> dict[str: str]:
 
     response = req.json()
 
-    logger.info("Submitting DUO result to SHIB")
+    logger.debug("Submitting DUO result to SHIB")
 
     data = {
         "sid": sid,
@@ -233,7 +234,7 @@ def generate_session_token(settings) -> dict[str: str]:
 
     response = req.json()
 
-    logger.info("Submitting APP and final csrf to SHIB")
+    logger.debug("Submitting APP and final csrf to SHIB")
 
     data = {
         "csrf_token": csrf_token,
@@ -267,7 +268,7 @@ def generate_session_token(settings) -> dict[str: str]:
     saml_response = soup.find("input", {"name": "SAMLResponse"}).get("value")
     action = soup.find("form").get("action")
 
-    logger.info("Submitting final SAML response to SHIB, fetching session cookies")
+    logger.debug("Submitting final SAML response to SHIB, fetching session cookies")
 
     data = {
         "RelayState": relay_state,
@@ -292,7 +293,7 @@ def generate_session_token(settings) -> dict[str: str]:
 
     req.raise_for_status()
 
-    logger.info("Refreshing session tokens using checkin")
+    logger.debug("Refreshing session tokens using checkin")
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
@@ -315,6 +316,8 @@ def generate_session_token(settings) -> dict[str: str]:
         "https://checkin.york.ac.uk/selfregistration",
         headers=headers,
     )
+
+    logger.info("Success")
 
     return {
         "prestostudent_session": session.cookies.get("prestostudent_session"),

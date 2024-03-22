@@ -3,7 +3,7 @@ import os
 import json
 import reject_api
 
-_logger = logging.getLogger("SETTINGS")
+_logger = logging.getLogger("Settings")
 SETTINGS_FILE = "settings.DONOTSHARE.json"
 VERSION = "2.0"
 
@@ -43,7 +43,7 @@ class Settings:
         self._reject_year = settings["reject_year"]
         self._reject_course = settings["reject_course"]
 
-        _logger.info("Settings loaded")
+        _logger.debug("Settings loaded")
 
     def _setup(self):
         _logger.info("Starting setup")

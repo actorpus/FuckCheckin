@@ -1,20 +1,28 @@
 # Fuck the checkin system V2
 
-V2 ditches selenium and emulates the entire setup signing and session systems from good old web requests only!
-When being run for the first time a duo push will need to be accepted, 
-after that the code registers itself as a duo device and can authorise its own signings
+I, and anyone else who has worked on this project, does not endorse skipping of any university ran even. 
+This entire project is purely for educational purposes.
 
-Be cautious not to share files marked with `.DONOTSHARE.` as they can contain sensitive information
-(Username, Password, Duo tokens)
+## Setup
+
+The initial setup process will ask for your university username and password, 
+you will then need to accept a push request from duo (entering a code is not yet implemented).
+The setup will also prompt you for your uni and course, this is for reject (course is "cs")
+
+## Usage
+
+Simply run `sentry.py` at any time before the events you want to skip, and it will do the rest.
+If you are planning on sleeping while the code is running it is advised that you leave your systems speakers 
+set to maximum volume, if anything goes wrong with the program, or the end of the event is approaching and nobody
+has submitted the checkin code to reject, an alarm will play designed to wake you up.
+
+## Note
+
+Be cautious not to share files marked with `.DONOTSHARE.` as they can contain sensitive information (Username, Password, Duo tokens). 
+Never share logs with anyone you don't trust as they can be used to extract session tokens
 
 If upgrading to V2 delete both the duo session file and the settings file, V2 uses new architecture for both.
 Old devices can be removed at https://duo.york.ac.uk/manage
-
-### TODO:
-- [x] Reimplement session management to not use browser emulation
-- [x] Reimplement Duo setup script to not use browser emulation
-- [x] Reimplement sentry system to work with new architecture
-- [ ] Add optional discord / telegram / whatsapp (?) integration 
 
 -----------------
 

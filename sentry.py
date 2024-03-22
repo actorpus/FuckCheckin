@@ -1,6 +1,7 @@
 import atexit
 import datetime
 import logging
+import logging.handlers
 import time
 import winsound
 
@@ -9,10 +10,24 @@ import event_checkin
 import reject_api
 import settings_handler
 
-logging.basicConfig(level=logging.INFO)
-_logger = logging.getLogger("SENTRY")
-_user_logger = logging.getLogger("SENTRY_USER")
-_user_logger.addHandler(logging.FileHandler("sentry.log"))
+_file_log = logging.handlers.TimedRotatingFileHandler(
+    "sentry.log", when="midnight", backupCount=7
+)
+_file_log.setLevel(logging.DEBUG)
+_file_log.setFormatter(
+    logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    )
+)
+
+_console_log = logging.StreamHandler()
+_console_log.setLevel(logging.INFO)
+
+
+logging.basicConfig(level=logging.DEBUG, handlers=[_file_log, _console_log])
+
+_logger = logging.getLogger("Sentry")
+
 
 
 def sound_alarm():
@@ -27,7 +42,6 @@ def sound_alarm():
 @atexit.register
 def unexpected_exit():
     _logger.critical("Unexpected exit, could be result of exception, starting alarm")
-    _user_logger.critical("Unexpected exit, could be result of exception, starting alarm")
 
     sound_alarm()
 
@@ -65,14 +79,13 @@ while True:
     events, token = event_checkin.get_checkin_events_token(session_tokens)
 
     if not events:
-        _logger.warning("No events found")
+        _logger.info("No events found")
         continue
 
-    _logger.info("Events found")
-    _user_logger.info(f"Events found: {', '.join([event['start_time'].strftime('%H:%M ') + event['activity'] for event in events])}")
+    _logger.info(f"Events found: {', '.join([event['start_time'].strftime('%H:%M ') + event['activity'] for event in events])}")
 
     while any(event["status"] not in ["Present", "Present Late"] for event in events):
-        _logger.info("Not all events are signed into")
+        _logger.debug("Not all events are signed into")
 
         codes = reject_api.getCodes(settings, return_events=False)
 
@@ -82,8 +95,7 @@ while True:
             # No point refreshing the events as no codes means no possible change in state
             continue
 
-        _logger.info("Codes found, attempting to sign in to events")
-        _user_logger.info(f"Codes found: {', '.join([str(a) for a in codes])}")
+        _logger.info(f"Codes found: {', '.join([str(a) for a in codes])}, attempting to sign in to events")
 
         # event_checkin.try_codes(codes, session_tokens["XSRF-TOKEN"], session_tokens["prestostudent_session"])
         event_checkin.try_codes(codes, session_tokens)
@@ -96,11 +108,9 @@ while True:
             for event in events
         ):
             _logger.error("One or more events have less than 15 minutes left, unregistering and starting alarm")
-            _user_logger.error("One or more events have less than 15 minutes left, unregistering and starting alarm")
 
             atexit.unregister(unexpected_exit)
             sound_alarm()
             exit()
 
-    _logger.info("All events are signed into")
-    _user_logger.info("All events are signed into")
+    _logger.debug("All events are signed into")

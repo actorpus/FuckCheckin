@@ -10,7 +10,7 @@ import requests.utils
 
 DUO_KEYS_FILE = "duo_keys.DONOTSHARE.json"
 
-_logger = logging.getLogger("DUO")
+_logger = logging.getLogger("DuoGen")
 
 
 def generate_code():
@@ -23,7 +23,7 @@ def generate_code():
     hotp = pyotp.HOTP(secret)
     code = hotp.at(count)
 
-    _logger.info(f"Code generation C{count}c{code}")
+    _logger.debug(f"Code generation C{count}c{code}")
 
     settings["c"] += 1
 
@@ -54,7 +54,7 @@ def generate_duo_keys(settings):
         "Accept-Encoding": "gzip, deflate, br",
     }
 
-    _logger.info("Loading initial page to initialise session and grab csrf token")
+    _logger.debug("Loading initial page to initialise session and grab csrf token")
 
     req = session.get(
         "https://duo.york.ac.uk/manage",
@@ -89,7 +89,7 @@ def generate_duo_keys(settings):
         "Sec-Fetch-User": "?1",
     }
 
-    _logger.info("Submitting username and password to generate SAMl response")
+    _logger.debug("Submitting username and password to generate SAMl response")
 
     req = session.post(
         "https://shib.york.ac.uk" + form.get("action"),
@@ -127,7 +127,7 @@ def generate_duo_keys(settings):
         "SAMLResponse": SAMLResponse,
     }
 
-    _logger.info("Submitting SAML response to grab duo session token")
+    _logger.debug("Submitting SAML response to grab duo session token")
 
     req = session.post(action, headers=headers, data=data)
 
@@ -188,7 +188,7 @@ def generate_duo_keys(settings):
         "DNT": "1",
     }
 
-    _logger.info("Submitting device information to DUO")
+    _logger.debug("Submitting device information to DUO")
 
     req = session.post(
         "https://"
@@ -223,7 +223,7 @@ def generate_duo_keys(settings):
     for thing in things:
         data[thing] = soup.find("input", {"name": thing}).get("value")
 
-    _logger.info("Submitting device information to DUO (2)")
+    _logger.debug("Submitting device information to DUO (2)")
 
     req = session.post(
         "https://"
@@ -265,7 +265,7 @@ def generate_duo_keys(settings):
         "DNT": "1",
     }
 
-    _logger.info("Generating Duo Push request")
+    _logger.debug("Generating Duo Push request")
 
     req = session.post(
         "https://" + host + "/frame/prompt",
@@ -284,7 +284,7 @@ def generate_duo_keys(settings):
         "txid": txid_token,
     }
 
-    _logger.info("Getting status of Duo Push")
+    _logger.debug("Getting status of Duo Push")
 
     req = session.post(
         "https://" + host + "/frame/status",
@@ -296,7 +296,7 @@ def generate_duo_keys(settings):
 
     print("Accept the duo push")
 
-    _logger.info("Waiting for Duo Push to be accepted, (status request)")
+    _logger.debug("Waiting for Duo Push to be accepted, (status request)")
 
     req = session.post(
         "https://" + host + "/frame/status",
@@ -330,7 +330,7 @@ def generate_duo_keys(settings):
         "DNT": "1",
     }
 
-    _logger.info("Activating mobile device to get qr secret")
+    _logger.debug("Activating mobile device to get qr secret")
 
     req = session.get(
         "https://"
@@ -374,7 +374,7 @@ def generate_duo_keys(settings):
 
     # thanks to https://github.com/revalo/duo-bypass/commit/3dd0cf08bed7e7f5fbafa75b55320372528062d1
 
-    _logger.info("Simulating mobile activation to get Duo Keys")
+    _logger.debug("Simulating mobile activation to get Duo Keys")
 
     req = requests.post(
         f"https://{host}/push/v2/activation/{code}?customer_protocol=1",

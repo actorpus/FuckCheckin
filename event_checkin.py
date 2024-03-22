@@ -10,12 +10,12 @@ import settings_handler
 
 
 HEADERS = {"User-Agent": "FuckCheckin/1.1"}
-_logger = logging.getLogger("CHECKSTER")
+_logger = logging.getLogger("Checkin")
 BASETIME = datetime.datetime.now().strftime("%y %m %d ")
 
 
 def get_checkin_events_token(session: dict[str: str]):
-    _logger.info("Loading the checkin page")
+    _logger.info("Fetching events from checkin.york.ac.uk")
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
@@ -30,6 +30,8 @@ def get_checkin_events_token(session: dict[str: str]):
     )
 
     req.raise_for_status()
+
+    _logger.debug("page load success")
 
     page = req.content.decode()
     soup = BeautifulSoup(page, "html.parser")
@@ -54,7 +56,7 @@ def get_checkin_events_token(session: dict[str: str]):
         return [], token
 
     if classes[0].text.__contains__("There is currently no activity for which you can register yourself."):
-        _logger.info("No classes found")
+        _logger.info("Found 0 events.")
         return [], token
 
     for _class in classes:
@@ -96,6 +98,8 @@ def get_checkin_events_token(session: dict[str: str]):
 
         events.append(event)
 
+
+    _logger.info(f"Found {len(events)} events")
     return events, token
 
 
@@ -131,18 +135,18 @@ def try_codes(codes, session: dict[str: str]):
 
     for event in events:
         if event["status"] in ["Present", "Present Late"]:
-            _logger.info(
+            _logger.debug(
                 f"Skipping event {event['activity']} as it is already marked as present"
             )
             continue
 
-        _logger.info(f"Attempting to sign in to event {event['activity']}")
+        _logger.debug(f"Attempting to sign in to event {event['activity']}")
 
         for code in codes:
             result = try_code(event["id"], code, session, token)
 
             if result:
-                _logger.info(f"Non failure during sign-in to event {event['activity']}")
+                _logger.debug(f"Non failure during sign-in to event {event['activity']}")
                 break
 
     events, _ = get_checkin_events_token(session)
